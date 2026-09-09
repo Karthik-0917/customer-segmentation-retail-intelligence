@@ -1,476 +1,360 @@
 # Customer Segmentation and Retail Intelligence using K-Means Clustering
 
-An end-to-end unsupervised machine learning system that transforms
-transaction-level retail data into customer-level behavioral features,
-discovers interpretable customer segments using K-Means clustering,
-validates the segmentation using internal clustering diagnostics, and
-provides interactive customer analysis and business decision support
-through Streamlit.
+An end-to-end, fully reproducible machine learning project that segments **4,338 retail customers** from the UCI Online Retail dataset into actionable behavioral groups using **RFM (Recency–Frequency–Monetary) analysis** and **K-Means clustering** — complete with a deterministic model-selection procedure, versioned artifacts, a strict inference contract, an interactive Streamlit dashboard, an automated test suite, and CI on GitHub Actions.
+
+**Author:** Karthik Neduri · [karthikneduri17@gmail.com](mailto:karthikneduri17@gmail.com) · [GitHub: Karthik-0917](https://github.com/Karthik-0917)
+
+**Repository:** https://github.com/Karthik-0917/customer-segmentation-retail-intelligence
 
 ---
 
-## 1. Project Overview
-
-Retailers accumulate large transaction logs but rarely have predefined
-customer segments. This project takes the raw UCI Online Retail transaction
-feed (~542k rows), applies a documented validation and cleaning policy,
-aggregates it into one behavioral row per customer (RFM plus additional
-behavioral features), selects a defensible feature set through
-correlation/skewness diagnostics, clusters customers with K-Means using a
-deterministic multi-criteria K-selection procedure, validates stability
-across a fixed seed set, profiles and names the segments from their actual
-statistics, and exposes the full analysis through a 7-page Streamlit
-application and a strict, schema-checked inference CLI.
-
-## 2. Business Problem
-
-A retail company holds transaction-level purchase data but no customer
-segments. Which customers are highly valuable? Who purchases frequently?
-Whose purchasing activity has slowed? Which groups may warrant retention or
-loyalty experiments? Clustering the customer base on observed purchasing
-behavior yields descriptive groupings that support these questions. All
-resulting recommendations are observational hypotheses — clustering does not
-establish that any strategy causes revenue or retention changes.
-
-## 3. Objectives
-
-1. Convert raw transactions into a clean, reproducible customer-level dataset.
-2. Engineer RFM and behavioral features with documented definitions.
-3. Select features with evidence (redundancy, skewness, silhouette sweeps).
-4. Choose K through a documented, deterministic multi-criteria procedure.
-5. Validate stability across a fixed seed set applied to every candidate K.
-6. Profile, name, and interpret segments from their actual statistics.
-7. Persist a versioned, schema-consistent model for retraining-free inference.
-8. Serve the analysis through a professional Streamlit application.
-
-## 4. Dataset
-
-- **Name:** Online Retail — UCI Machine Learning Repository (id 352)
-- **URL:** <https://archive.ics.uci.edu/dataset/352/online+retail>
-- **Structure:** transaction-level rows: `InvoiceNo`, `StockCode`,
-  `Description`, `Quantity`, `InvoiceDate`, `UnitPrice`, `CustomerID`,
-  `Country` — a UK-based online gift retailer, December 2010 to December 2011.
-- **Local path:** `data/Online_Retail.xlsx` (manual download; no account or
-  API key required — see `data/README.md`).
-
-## 5. Dataset License
-
-Creative Commons Attribution 4.0 International (CC BY 4.0).
-Attribution: Chen, D. (2015). *Online Retail* [Dataset]. UCI Machine
-Learning Repository. <https://doi.org/10.24432/C5BW33>
-
-The raw workbook is **gitignored**; only `data/README.md` is committed. All
-derived artifacts are reproducible from the raw file via the training
-pipeline.
-
-## 6. Solution Architecture
-UCI Online Retail (data/Online_Retail.xlsx)
-→ Schema Validation (src/data_loader.py)
-→ Transaction Cleaning + Cancellation Policy (src/preprocessing.py)
-→ Valid Orders (unique InvoiceNo)
-→ Customer Aggregation → RFM + Behavioral Features (src/features.py)
-→ Skewness + Spearman Redundancy Diagnostics
-→ Feature Selection → log1p → StandardScaler
-→ K=2..8 Evaluation (elbow + silhouette + fixed-seed stability)
-→ Deterministic Multi-Criteria K Selection (src/clustering.py)
-→ Final K-Means (random_state=42, n_init=10)
-→ Validation → Profiling → Data-Driven Segment Naming (src/profiling.py)
-→ Revenue / Customer-Share Analysis
-→ models/ artifacts + outputs/ analytical artifacts (src/pipeline.py)
-→ Streamlit application (app/) + CLI inference (src/inference.py)
-
-text
-
-
-## 7. Data Cleaning
-
-Counts produced by the actual pipeline run on the official UCI file:
-
-| Step | Rows |
-| --- | --- |
-| Rows loaded | 541,909 |
-| Exact duplicate rows removed | 5,268 |
-| Missing `CustomerID` removed | 135,037 |
-| Invalid dates removed | 0 |
-| Cancellation invoices removed (`InvoiceNo` starting with "C") | 8,872 |
-| Non-positive quantity/price removed (incl. bad-debt adjustments) | 40 |
-| **Valid rows retained** | **392,692** |
-
-Result: 18,532 valid orders across 4,338 customers; total valid revenue
-£8,887,208.89. Every removal is counted dynamically and persisted to
-`outputs/data_quality.json` — the dashboard displays generated values, never
-hard-coded ones.
-
-## 8. Transaction Definition
-
-One **order/transaction** = one unique valid `InvoiceNo` after cleaning.
-Multiple product rows on a single invoice count as **one** order. This
-single definition is used consistently for Frequency, Average Order Value,
-order counts, dashboard KPIs, and customer profiling. Revenue is
-`Quantity × UnitPrice` on valid rows only.
-
-## 9. Reference Date
-
-`reference_date = max(valid InvoiceDate) + 1 day` — computed from the
-cleaned data (2011-12-10 for this dataset). Recency therefore never depends
-on the current system date, is identical on every rerun, and no information
-after the reference date enters any feature (no future-information leakage).
-Observation period: 2010-12-01 → 2011-12-09.
-
-## 10. RFM
-
-Computed per customer from valid purchases only:
-
-- **Recency** — days between the customer's latest valid purchase and the
-  reference date. *How recently the customer purchased.*
-- **Frequency** — number of unique valid purchase invoices (orders).
-  *How often the customer purchased.*
-- **Monetary** — total valid purchase revenue for the customer.
-  *How much valid revenue the customer generated.*
-
-Together they provide three complementary dimensions of purchasing behavior.
-
-## 11. Behavioral Features
-
-Additional per-customer descriptors: `AvgOrderValue` (Monetary/Frequency),
-`UniqueProducts` (distinct StockCodes), `TotalQuantity` (total units),
-`ActiveDays` (days between first and last valid purchase), and `Country`
-(modal country, descriptive only). These support profiling and the dashboard
-but are **not** model inputs. `CustomerID` is retained solely as an
-identifier and is never a clustering feature.
-
-## 12. Feature Selection
-
-| Feature | Definition | Candidate? | Used for clustering? | Transformation | Reason |
-| --- | --- | --- | --- | --- | --- |
-| Recency | Days since last valid purchase | Yes | **Yes** | log1p | Core engagement-recency axis |
-| Frequency | Unique valid orders | Yes | **Yes** | log1p | Core purchase-rate axis |
-| Monetary | Total valid revenue | Yes | **Yes** | log1p | Core value axis |
-| AvgOrderValue | Monetary / Frequency | Yes | No | — | Ratio of two model features; lowered silhouette at every K in sweeps |
-| UniqueProducts | Distinct products bought | Yes | No | — | Redundant with purchasing intensity; lowered silhouette at every K |
-| TotalQuantity | Total units purchased | Yes | No | — | Near-duplicate of Monetary (Spearman ≈ 0.93) |
-| ActiveDays | First-to-last purchase span | Yes | No | — | Near-duplicate of Frequency (Spearman ≈ 0.89) |
-| Country | Modal customer country | No | No | — | Descriptive/profiling only; one-hot dummies would dominate the space |
-| CustomerID | Identifier | No | Never | — | Not a behavioral attribute |
-
-## 13. Redundancy Analysis
-
-Spearman correlations (robust to skew) are computed on the actual dataset
-and persisted to `outputs/correlation_matrix.csv`. Key measured values:
-Monetary vs TotalQuantity ≈ 0.93, Frequency vs ActiveDays ≈ 0.89,
-Frequency vs Monetary ≈ 0.81. Feature-set sweeps under identical
-preprocessing showed every RFM-augmented candidate set producing lower
-silhouette at every K, so the redundant candidates were excluded rather than
-double-counting purchasing intensity.
-
-## 14. Transformation
-
-Measured raw skewness: Monetary 19.34, Frequency 12.07, AvgOrderValue 41.69
-(see `outputs/feature_summary.csv`). `log1p` is applied to the three model
-features, reducing skew to −0.47…1.21, so centroids are not dictated by a
-handful of extreme customers. **Outliers are retained** — exceptionally
-valuable customers are business signal, not noise; no records are deleted
-and no capping is applied.
-
-## 15. Standardization
-
-`sklearn.preprocessing.StandardScaler` is fitted once on the log1p-transformed
-customer feature matrix and persisted to `models/scaler.joblib`. Inference
-loads and applies this exact scaler; no scaler is ever refitted outside the
-training pipeline, and feature order is fixed by the persisted schema.
-
-## 16. K-Means
-
-`sklearn.cluster.KMeans` with explicit `random_state=42` and `n_init=10`
-(no reliance on library defaults). K-Means is the final segmentation
-algorithm; no alternative algorithm replaces it.
-
-## 17. K Selection
-
-Every K from 2 through 8 is evaluated. Reference-run (seed 42) metrics from
-actual execution:
-
-| K | Inertia | Silhouette | Smallest / largest cluster |
-| - | ------- | ---------- | -------------------------- |
-| 2 | 6488.0 | 0.4340 | 1,652 / 2,686 |
-| 3 | 4879.1 | 0.3381 | 745 / 1,916 |
-| 4 | 3962.7 | 0.3368 | 699 / 1,635 |
-| 5 | 3331.9 | 0.3155 | 292 / 1,224 |
-| 6 | 2875.4 | 0.3143 | 264 / 1,005 |
-| 7 | 2573.2 | 0.3090 | 217 / 896 |
-| 8 | 2359.6 | 0.3021 | 210 / 867 |
-
-**Deterministic selection procedure** (implemented in
-`src/clustering.py::select_k`, configured in `configs/config.yaml`):
-
-1. **Eligibility filters:** a candidate K must produce at least 3 segments
-   (a two-way active/inactive split is too coarse for differentiated
-   customer strategy — this documented business requirement is why K=2,
-   despite holding the highest raw silhouette, is excluded; the tradeoff is
-   shown, not hidden) and every segment must hold at least 5% of customers
-   (segments must be operationally addressable).
-2. **Evidence score:** equal-weight mean of min-max-normalized silhouette,
-   stability (mean ARI versus the seed-42 reference), and minimum cluster
-   share, computed identically for every eligible K.
-3. **Deterministic tie-break:** higher silhouette → higher stability →
-   lower K.
-
-The selected K, its full evidence table, and the generated "Why this K?"
-explanation are produced by running the pipeline and persisted to
-`models/model_metadata.json`, `outputs/model_evaluation.csv`, and
-`outputs/summary.json`. The final model's inertia, silhouette, cluster
-sizes, and segment names are recorded in those same generated artifacts —
-they are outputs of the documented procedure applied to the actual data,
-not hard-coded values. K=2..8 all remain visible in the Model Analysis page
-and evaluation table.
-
-## 18. Cluster Validation
-
-- **Internal diagnostics:** inertia, silhouette score, cluster sizes and
-  balance, centroid separation.
-- **Fixed-seed stability:** the seed set `[42, 7, 21, 52, 101]` is applied
-  identically to every candidate K with the same preprocessing, feature
-  matrix, and `n_init`. Per K, the pipeline records mean/std of silhouette
-  across seeds and Adjusted Rand Index of each seed's clustering **versus
-  the seed-42 reference run** (a deterministic reference, not ground truth).
-  Results are persisted to `outputs/stability.json`.
-- No classification metrics (accuracy/precision/recall/F1) are used:
-  clustering has no ground-truth labels, and no "accuracy" is claimed.
-
-## 19. Cluster Profiles
-
-For every cluster the pipeline computes customer count, customer share,
-mean and median Recency/Frequency/Monetary, median AvgOrderValue, product
-diversity, active duration, total revenue, and revenue share — persisted to
-`outputs/segment_profiles.csv`. Medians are emphasized for the heavily
-skewed monetary metrics, with means shown alongside. Segment medians are
-compared against the population median (labelled explicitly as
-"1.0× = population median" in the dashboard).
-
-## 20. Business Insights
-
-Per-segment insight blocks (generated into
-`outputs/business_insights.json`) contain the observed profile, revenue
-contribution, potential opportunity, potential risk, a strategy that could
-be tested, and an explicit caution. All language is observational and
-hypothesis-oriented ("this segment may be a candidate for…", "a controlled
-experiment could test…"). No causal claims are made, and "churn" is not
-used — the dataset contains no validated churn outcome; reduced recent
-purchasing activity is described as exactly that.
-
-## 21. Streamlit Application
-
-Seven pages, all reading generated artifacts (never retraining, raw dataset
-not required at runtime), with consistent segment names and deterministic
-segment colors throughout:
-
-1. **Executive Overview** — KPI cards (customers, valid orders, revenue,
-   AOV, selected K, silhouette, observation period), segment distribution,
-   revenue contribution by segment, customer share vs revenue share,
-   monthly order/revenue trends, improved horizontal country chart with a
-   Customers/Revenue/AOV metric selector.
-2. **Customer Segments** — segment selector; profile cards (count, share,
-   revenue, revenue share, median RFM/AOV/diversity/duration), population
-   comparison heatmap, country table within the segment.
-3. **Model Analysis** — elbow curve, silhouette by K (selected K
-   highlighted, K=2 visible), candidate-K decision table, cluster-size
-   chart with percentages, fixed-seed stability table, generated "Why this
-   K?" explanation, PCA 2-D cluster visualization (visualization only —
-   K-Means is trained on the full modeling feature space), standardized
-   cluster profile visualization, and full model configuration from
-   metadata.
-4. **Customer Behavior** — segment and country filters, behavioral feature
-   selector, distribution/boxplot/scatter charts with axis controls and
-   mathematically safe log scaling.
-5. **Segment Predictor** — assigns an **already-computed** customer
-   behavioral profile (Recency/Frequency/Monetary) to the trained
-   segmentation; validates inputs against the persisted schema; warns when
-   inputs fall outside the observed training range (out-of-distribution
-   warning, not a confidence claim); never retrains.
-6. **Business Insights** — per-segment observational blocks with customer
-   share and revenue share, framed as testable hypotheses.
-7. **Data & Methodology** — dataset, license, cleaning table, transaction
-   definition, reference date, RFM explanation, feature selection,
-   modeling, K-selection procedure, limitations, and a methodology pipeline
-   diagram.
-
-A sidebar model-status panel shows the loaded model's K, features, version,
-and training timestamp from metadata. Missing, corrupted, or
-version-incompatible artifacts produce clear guidance messages instead of
-tracebacks.
-
-## 22. Inference
-
-`src/inference.py` implements a strict training/inference contract:
-
-- validates feature names, completeness (missing features rejected, never
-  imputed), extras (rejected, never dropped), numeric types, finiteness,
-  and per-feature constraints (Recency ≥ 0, Frequency ≥ 1, Monetary > 0)
-  against `models/feature_schema.json`;
-- applies the schema-defined log1p transform and the persisted training
-  scaler in the persisted feature order;
-- predicts with the persisted K-Means model and maps the cluster to its
-  segment name and profile;
-- emits an out-of-distribution warning when an input lies outside the
-  observed training range recorded in model metadata;
-- rejects artifact/schema/version incompatibilities with clear errors.
-
-**The model is never retrained at inference.** RFM requires transaction
-history: the tool assigns an existing/external customer's already-computed
-behavioral profile — it does not derive RFM from demographics.
-
-## 23. Model Artifacts
-
-Generated by the training pipeline into `models/` (see `models/README.md`):
-
-| Artifact | Contents |
-| --- | --- |
-| `scaler.joblib` | StandardScaler fitted on the log1p-transformed RFM matrix |
-| `kmeans.joblib` | Final trained K-Means model |
-| `segment_mapping.json` | cluster_id → segment name, naming rationales, profiles |
-| `feature_schema.json` | Feature names, order, transformations, dtypes, constraints, schema version |
-| `model_metadata.json` | Model version (`rfm-kmeans-v1`), schema version, dataset, observation period, reference date, features, selected K + selection evidence, seeds, validation metrics, training timestamp, library versions, observed feature ranges |
-
-Derived analytical artifacts for the dashboard are written to `outputs/`
-(summary, customer segments with PCA coordinates, segment profiles, model
-evaluation, stability, correlation matrix, feature summary, population
-comparison, business insights, monthly activity, country summary, data
-quality). They are small, contain no raw transaction rows, and are
-committed so the deployed dashboard runs without the raw dataset.
-
-## 24. Reproducibility
-
-Fixed `random_state=42` and `n_init=10`; fixed stability seed set
-`[42, 7, 21, 52, 101]`; deterministic reference date and cleaning; a single
-feature source of truth (`src/features.py` → `models/feature_schema.json`);
-identical transform and scaler at training and inference; the documented
-deterministic K-selection procedure applied identically on every rerun; and
-`models/model_metadata.json` recording the exact configuration behind the
-committed artifacts. Re-running the pipeline on the same dataset and
-configuration reproduces the same selection and artifacts (the training
-timestamp field is intentionally volatile and documented as such).
-
-## 25. Project Structure
-customer-segmentation/
-├── app/
-│ ├── init.py
-│ ├── predict.py # 7-page Streamlit application
-│ ├── components.py # cached artifact loading + error handling
-│ └── charts.py # Plotly chart builders (consistent colors)
-├── src/
-│ ├── init.py
-│ ├── config.py # paths + configs/config.yaml loading
-│ ├── data_loader.py # load + schema validation
-│ ├── preprocessing.py # cleaning policy, reference date, scaling
-│ ├── features.py # RFM/behavioral features, diagnostics, schema
-│ ├── clustering.py # K evaluation, stability, deterministic K selection
-│ ├── profiling.py # profiles, naming, revenue analysis, insights
-│ ├── inference.py # strict-contract CLI inference + OOD warnings
-│ └── pipeline.py # training orchestrator
-├── configs/
-│ └── config.yaml # seeds, K range, selection rule parameters
-├── data/
-│ └── README.md # dataset source, license, setup (raw file gitignored)
-├── models/ # generated model artifacts + README
-├── outputs/ # generated dashboard/analytical artifacts
-├── tests/ # synthetic-fixture test suite (no raw data needed)
-├── .github/workflows/ci.yml # Ruff + Black + pytest on Python 3.11 / 3.12
-├── .gitignore
-├── LICENSE
-├── README.md
-├── requirements.txt
-└── pyproject.toml
-
-text
-
-
-## 26. Installation
+## Table of Contents
+
+1. [Project Highlights](#project-highlights)
+2. [Business Problem](#business-problem)
+3. [Dataset](#dataset)
+4. [Solution Architecture](#solution-architecture)
+5. [Data Cleaning](#data-cleaning)
+6. [Feature Engineering](#feature-engineering)
+7. [Model Selection — Deterministic K Procedure](#model-selection--deterministic-k-procedure)
+8. [Results — Customer Segments](#results--customer-segments)
+9. [Interactive Dashboard](#interactive-dashboard)
+10. [Inference Contract](#inference-contract)
+11. [Testing & Code Quality](#testing--code-quality)
+12. [Reproducibility & Engineering Practices](#reproducibility--engineering-practices)
+13. [Project Structure](#project-structure)
+14. [Setup & Usage](#setup--usage)
+15. [Key Artifacts](#key-artifacts)
+16. [Limitations & Honest Caveats](#limitations--honest-caveats)
+17. [Tech Stack](#tech-stack)
+18. [Author](#author)
+
+---
+
+## Project Highlights
+
+- **End-to-end ML pipeline**: raw Excel → cleaning → RFM feature engineering → model selection → trained artifacts → dashboard & CLI inference, all from a single command (`python -m src.pipeline`).
+- **Deterministic, evidence-based K selection** — the number of clusters is *never* hard-coded. It is chosen by a documented procedure combining silhouette score, seed-stability (Adjusted Rand Index across a fixed seed set), and minimum cluster share, with explicit eligibility rules and tie-breaking.
+- **Stability-tested clustering**: every candidate K (2–8) is re-fit under the fixed seed set `[42, 7, 21, 52, 101]`; mean ARI vs the seed-42 reference run is **0.9955** for the selected model — the segmentation is essentially seed-invariant.
+- **Versioned model artifacts** (`model_version: rfm-kmeans-v1`, `feature_schema_version: 1.0.0`) with startup compatibility validation in the dashboard.
+- **Strict inference contract**: schema validation, per-feature constraints (Recency ≥ 0, Frequency ≥ 1, Monetary > 0), NaN/inf rejection, and **out-of-distribution warnings** derived from persisted training ranges.
+- **7-figure business context**: £8,887,208.89 in analyzed revenue across 18,532 orders, with per-segment revenue-share analysis.
+- **Quality engineering**: comprehensive pytest suite on synthetic fixtures (no dataset needed to test), Ruff linting, Black formatting, and a GitHub Actions CI matrix on **Python 3.11 and 3.12**.
+
+---
+
+## Business Problem
+
+Retail businesses cannot treat all customers identically — marketing budget, retention effort, and service levels should follow customer value and behavior. This project answers:
+
+> *"Given one year of transaction history, which distinct behavioral groups exist in the customer base, how large and how valuable is each group, and how can a new customer's behavioral profile be assigned to a segment?"*
+
+The output is a small set of interpretable segments with quantified size, spend, and activity profiles that can directly drive differentiated marketing and retention strategies.
+
+---
+
+## Dataset
+
+- **Source:** [UCI Machine Learning Repository — Online Retail (Dataset #352)](https://archive.ics.uci.edu/dataset/352/online%2Bretail)
+- **Content:** All transactions between **2010-12-01 and 2011-12-09** for a UK-based online retailer of unique all-occasion gifts.
+- **Raw size:** 541,909 rows × 8 columns (InvoiceNo, StockCode, Description, Quantity, InvoiceDate, UnitPrice, CustomerID, Country).
+- The raw file (`data/Online_Retail.xlsx`, ~23 MB) is **deliberately not committed** to this repository. Download it from UCI and place it at `data/Online_Retail.xlsx` (see [Setup & Usage](#setup--usage)).
+
+---
+
+## Solution Architecture
+
+```
+Raw Excel (541,909 rows)
+        │
+        ▼
+┌─────────────────┐   ┌──────────────────┐   ┌────────────────────┐
+│  Data Cleaning   │──▶│ RFM Feature Build │──▶│  Scaling (log1p +  │
+│  (5-step audit)  │   │ (1 row/customer)  │   │  StandardScaler)   │
+└─────────────────┘   └──────────────────┘   └────────────────────┘
+                                                        │
+        ┌───────────────────────────────────────────────┘
+        ▼
+┌──────────────────────────┐   ┌──────────────────────┐
+│  K sweep (K = 2 … 8)      │──▶│ Deterministic K       │
+│  5 fixed seeds per K      │   │ selection procedure   │
+└──────────────────────────┘   └──────────────────────┘
+                                          │
+        ┌─────────────────────────────────┘
+        ▼
+┌──────────────────┐   ┌───────────────────┐   ┌────────────────────┐
+│  Final K-Means    │──▶│ Segment profiling  │──▶│ Versioned artifacts │
+│  fit + naming     │   │ + business insights│   │ (models/, outputs/) │
+└──────────────────┘   └───────────────────┘   └────────────────────┘
+                                                        │
+                              ┌─────────────────────────┴───────────┐
+                              ▼                                     ▼
+                   ┌────────────────────┐               ┌────────────────────┐
+                   │ Streamlit dashboard │               │  CLI inference      │
+                   │ (artifacts only —   │               │  (schema-validated, │
+                   │  never retrains)    │               │  OOD-aware)         │
+                   └────────────────────┘               └────────────────────┘
+```
+
+---
+
+## Data Cleaning
+
+A five-step auditable cleaning process, with every removal counted and persisted to `outputs/data_quality.json`:
+
+| Step | Rule | Rows removed |
+|---|---|---:|
+| 1 | Exact duplicate rows | 5,268 |
+| 2 | Missing `CustomerID` (cannot attribute to a customer) | 135,037 |
+| 3 | Invalid invoice dates | 0 |
+| 4 | Cancellations (`InvoiceNo` starting with "C") | 8,872 |
+| 5 | Non-positive quantity or unit price | 40 |
+| — | **Valid rows retained** | **392,692** |
+
+**Resulting analysis base:** 4,338 customers · 18,532 valid orders · **£8,887,208.89** total revenue · average order value **£479.56** · reference date **2011-12-10** (max valid invoice date + 1 day — no information leakage past the observation window).
+
+---
+
+## Feature Engineering
+
+One row per customer (CustomerID is an identifier only — **never** a clustering feature):
+
+| Feature | Definition |
+|---|---|
+| **Recency** | Days from a customer's last purchase to the reference date |
+| **Frequency** | Number of distinct valid orders (unique `InvoiceNo`) |
+| **Monetary** | Total spend (Σ Quantity × UnitPrice) |
+
+**Why log1p + StandardScaler?** Raw RFM features are heavily right-skewed, which distorts K-Means' Euclidean distances. The `log1p` transform reduces skewness dramatically before z-scaling:
+
+| Feature | Skew (raw) | Skew (log1p) |
+|---|---:|---:|
+| Recency | 1.246 | −0.467 |
+| Frequency | 12.067 | 1.209 |
+| Monetary | 19.339 | 0.397 |
+
+**Why only 3 features?** Candidate augmentations (AvgOrderValue, UniqueProducts, TotalQuantity, ActiveDays) were evaluated and rejected: they are strongly rank-correlated with the core RFM trio (Spearman: Monetary–TotalQuantity **0.928**, Frequency–ActiveDays **0.893**, Frequency–Monetary **0.807**) and added redundancy without improving cluster quality at any K. Country is used for **profiling only** — never one-hot encoded into the distance space.
+
+---
+
+## Model Selection — Deterministic K Procedure
+
+The final K is **not hard-coded anywhere**. It is the output of a documented, reproducible procedure implemented in `src/clustering.py::select_k`:
+
+1. **Sweep** K = 2 … 8. For each K, fit K-Means (`n_init=10`) under the fixed seed set **[42, 7, 21, 52, 101]**; seed 42 is the deterministic reference run (a reference — *not* ground truth).
+2. **Evidence per K:** silhouette score, mean **ARI vs the seed-42 reference** across seeds, and smallest-cluster share.
+3. **Evidence score:** equal-weight mean of the three metrics after min–max normalization across candidates.
+4. **Eligibility:** at least 3 segments (a two-way split is too coarse for differentiated customer strategy) and smallest cluster ≥ 5% of customers.
+5. **Tie-breaking (deterministic):** higher silhouette → higher stability → lower K.
+
+**Actual results** (from `outputs/model_evaluation.csv`, produced by execution):
+
+| K | Silhouette | Mean ARI vs seed 42 | Smallest cluster share | Evidence score | Status |
+|---|---:|---:|---:|---:|---|
+| 2 | 0.4340 | 0.9979 | 38.1% | 1.000 | Quantitative leader (below granularity minimum) |
+| **3** | **0.3381** | **0.9955** | **17.2%** | **0.541** | ✅ **Selected** |
+| 4 | 0.3368 | 0.9867 | 16.1% | 0.503 | Eligible |
+| 5 | 0.3155 | 0.9408 | 6.7% | 0.229 | Eligible |
+| 6 | 0.3143 | 0.9811 | 6.1% | 0.330 | Eligible |
+| 7 | 0.3090 | 0.9932 | 5.0% | 0.339 | Eligible |
+| 8 | 0.3021 | 0.8769 | 4.8% | 0.000 | Eligible |
+
+**Transparent reasoning:** K=2 wins on raw quantitative evidence but reproduces only a coarse active-vs-inactive split, below the documented 3-segment business minimum. Among K ≥ 3 candidates, **K=3 beats K=4 on all three evidence components**. Nothing is hidden — the full table, including K=2, is preserved in the artifacts and displayed in the dashboard. The selected model's silhouette of 0.3381 indicates **moderate separation**, which is expected and acceptable for behavioral (non-spherical, continuous) customer data.
+
+---
+
+## Results — Customer Segments
+
+**Selected model: K = 3** (silhouette 0.3381 · mean ARI vs seed 42: 0.9955):
+
+| Segment | Customers | Share | Behavioral profile |
+|---|---:|---:|---|
+| 🟢 **Active High-Value Frequent Buyers** | 745 | 17.2% | Recent, frequent, high-spend customers — the revenue core |
+| 🔵 **Steady Mid-Value Customers** | 1,677 | 38.7% | Moderately recent and regular; median ~31 days recency, ~£1,013 spend; 26.0% of revenue |
+| 🟠 **Inactive Low-Spend Infrequent Customers** | 1,916 | 44.2% | Long time since last purchase, few orders, low spend |
+
+Per-segment revenue vs customer-share comparison, standardized profile heatmaps (multipliers where **1.0× = population median**), and hypothesis-style business recommendations are generated into `outputs/business_insights.json` and `outputs/segment_profiles.csv`.
+
+A PCA projection (2 components, **93.9%** variance explained: 75.2% + 18.7%) is used for **visualization only** — clustering always operates in the full scaled 3-D feature space.
+
+---
+
+## Interactive Dashboard
 
 ```bash
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
-
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-27. Dataset Setup
-Download the dataset zip from
-https://archive.ics.uci.edu/dataset/352/online+retail (no account or API
-key required), extract it, and save the workbook as:
-
-text
-
-data/Online_Retail.xlsx
-28. Training
-Bash
-
-python -m src.pipeline
-Runs the complete workflow (cleaning → features → K evaluation →
-fixed-seed stability → deterministic K selection → training → profiling →
-persistence) and regenerates all models/ and outputs/ artifacts.
-
-29. Testing
-Bash
-
-python -m pytest -q
-Tests run on small synthetic fixtures matching the UCI schema — the raw
-dataset is not required.
-
-30. Code Quality
-Bash
-
-python -m ruff check .
-python -m black --check .
-Continuous integration (.github/workflows/ci.yml) runs Ruff, Black, and
-pytest on Python 3.11 and 3.12.
-
-31. Streamlit Run
-Bash
-
 streamlit run app/predict.py
-32. Inference Command
-Bash
+```
 
+Built entirely from persisted artifacts — the dashboard **never retrains or recomputes** the model:
+
+- **Sidebar model status:** model version, schema version, selected K, and artifact compatibility validation at startup.
+- **Overview:** dataset KPIs, cleaning audit, monthly activity.
+- **Segment explorer:** sizes, revenue share, standardized profile heatmap, deterministic per-segment colors used consistently on every chart.
+- **Model analysis:** full K = 2–8 evidence table (K=2 tradeoff included), stability results, PCA cluster visualization with explicit "visualization only" caption.
+- **Geography:** horizontal country chart with Customers / Revenue / AOV selector (profiling only).
+- **Prediction:** interactive form with schema validation and out-of-distribution warnings; results are shown as an **Assigned Segment** (never as a confidence claim).
+- **Methodology:** end-to-end pipeline diagram and honest documentation of every design decision.
+
+---
+
+## Inference Contract
+
+Command-line inference against the trained artifacts:
+
+```bash
 python -m src.inference --recency 30 --frequency 5 --monetary 1500
-Arguments correspond exactly to the persisted feature schema: --recency
-(days since last valid purchase, ≥ 0), --frequency (unique valid orders,
-≥ 1), --monetary (total valid revenue, > 0).
+```
 
-33. Limitations
-Single retailer and a single year of data (December 2010 – December
-2011); findings do not generalize to other businesses or periods without
-revalidation.
-Roughly a quarter of raw rows lack CustomerID and are necessarily
-excluded, so anonymous/guest purchases are under-represented.
-The dataset does not provide a validated future churn outcome; therefore
-the segmentation is evaluated primarily using internal clustering
-diagnostics and descriptive behavioral differences.
-Silhouette values in the observed range indicate moderate, not sharp,
-separation — customer behavior is continuous and segment boundaries are
-soft.
-K-Means assumes roughly spherical clusters in the scaled space and
-produces hard assignments; borderline customers may sit near two
-segments.
-The analysis is descriptive: it supports hypothesis generation, not
-causal conclusions; proposed strategies require controlled experiments.
-Monetary is gross purchase value (cancellations/returns excluded), not
-net-of-returns value.
-External inference is only as reliable as the supplied behavioral
-features, which require genuine transaction history.
-34. Future Improvements
-Net-of-returns monetary view alongside the gross view.
-Time-windowed retraining (e.g., quarterly) with segment-migration
-tracking.
-Gaussian Mixture Models as a soft-assignment diagnostic comparison.
-Basket-level product-affinity features if reliable product categories can
-be derived.
-35. License
-MIT License (see LICENSE). Dataset licensed under CC BY 4.0 and
-attributed in data/README.md.
+Actual output:
 
-36. Author
-Karthik Neduri
+```
+Assigned segment : Cluster 2 — Steady Mid-Value Customers
+Segment profile  : 1677 customers (38.7%), median recency 31 d, median 3 orders, median spend 1,013, revenue share 26.0%
+Model            : rfm-kmeans-v1 (K=3, schema v1.0)
+```
 
+Guarantees enforced by `src/inference.py`:
 
+- **No retraining** — the persisted scaler and K-Means model are loaded and applied as-is.
+- **Schema validation** against `models/feature_schema.json` (feature names, order, count).
+- **Hard constraints:** Recency ≥ 0, Frequency ≥ 1, Monetary > 0; NaN/inf rejected.
+- **Out-of-distribution warnings** when an input falls outside the persisted training ranges — a transparency warning, not a rejection and not a fake confidence score.
+
+---
+
+## Testing & Code Quality
+
+| Check | Command | Status |
+|---|---|---|
+| Unit tests | `python -m pytest -q` | ✅ All passing |
+| Linting | `ruff check .` | ✅ All checks passed |
+| Formatting | `black --check .` | ✅ 21 files, nothing to change |
+| CI | GitHub Actions | ✅ Matrix: Python 3.11 & 3.12 |
+
+The pytest suite covers data loading, cleaning rules, feature engineering, scaling, K selection determinism, segment profiling, artifact round-trips, and the full inference contract (validation, constraints, OOD warnings, corrupted-artifact rejection). **Tests run entirely on synthetic fixtures** — CI never needs the raw dataset.
+
+---
+
+## Reproducibility & Engineering Practices
+
+- Single-command pipeline; all randomness pinned (`random_state=42`, explicit `n_init=10`, fixed stability seed set).
+- Results verified **bit-identical across independent environments** (Windows / Python 3.14 local run vs Linux sandbox).
+- Configuration externalized to `configs/config.yaml` — no magic numbers in code.
+- No data leakage: the reference date is derived strictly from the observation window; features never look past it.
+- No outlier deletion of high-value customers (they are legitimate business reality, handled via log-scaling instead).
+- Raw dataset excluded from version control (`.gitignore`); artifacts under `models/` and `outputs/` are committed for exact result inspection.
+- Honest metric language throughout: silhouette described as moderate separation; ARI measured against a named reference seed; no classification-accuracy claims for an unsupervised model.
+
+---
+
+## Project Structure
+
+```
+customer-segmentation/
+├── .github/workflows/ci.yml     # CI: pytest + ruff + black on Python 3.11 & 3.12
+├── app/
+│   ├── predict.py               # Streamlit dashboard (entry point)
+│   ├── charts.py                # Plotly chart builders (deterministic colors)
+│   └── components.py            # Shared UI components, sidebar model status
+├── configs/config.yaml          # All pipeline configuration (seeds, K range, paths)
+├── data/                        # Place Online_Retail.xlsx here (gitignored)
+├── models/                      # kmeans.joblib, scaler.joblib, feature_schema.json,
+│                                # segment_mapping.json, model_metadata.json
+├── outputs/                     # 12 generated artifacts: evaluation, stability,
+│                                # profiles, insights, summary, parquet segments…
+├── src/
+│   ├── data_loader.py           # Excel/CSV loading with dtype discipline
+│   ├── preprocessing.py         # 5-step audited cleaning
+│   ├── features.py              # RFM build, scaling, schema, feature ranges
+│   ├── clustering.py            # K sweep, stability, deterministic select_k
+│   ├── profiling.py             # Segment naming, profiles, business insights
+│   ├── pipeline.py              # End-to-end orchestration
+│   ├── inference.py             # CLI inference with strict contract
+│   └── config.py                # Typed access to configs/config.yaml
+└── tests/                       # Pytest suite on synthetic fixtures
+```
+
+---
+
+## Setup & Usage
+
+```bash
+# 1. Clone
+git clone https://github.com/Karthik-0917/customer-segmentation-retail-intelligence.git
+cd customer-segmentation-retail-intelligence
+
+# 2. Virtual environment (Python 3.11+)
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # macOS / Linux
+
+# 3. Dependencies
+pip install -r requirements.txt
+
+# 4. Dataset — download from UCI and place as:
+#    data/Online_Retail.xlsx
+#    https://archive.ics.uci.edu/dataset/352/online%2Bretail
+
+# 5. Run the full pipeline (trains model, writes all artifacts)
+python -m src.pipeline
+
+# 6. Explore the dashboard
+streamlit run app/predict.py
+
+# 7. Assign a segment from the command line
+python -m src.inference --recency 30 --frequency 5 --monetary 1500
+
+# 8. Verify quality
+python -m pytest -q
+ruff check .
+black --check .
+```
+
+> The dashboard and CLI run purely from committed artifacts, so steps 6–7 work even without the raw dataset.
+
+---
+
+## Key Artifacts
+
+| File | Contents |
+|---|---|
+| `models/model_metadata.json` | Model version, selected K, seeds, training metadata |
+| `models/feature_schema.json` | Feature names/order, constraints, training ranges (drives validation + OOD) |
+| `outputs/model_evaluation.csv` | Full K = 2–8 evidence table with scores and statuses |
+| `outputs/stability.json` | Per-K, per-seed ARI and silhouette results |
+| `outputs/summary.json` | Selected K, selection reasoning, segment sizes, cleaning audit |
+| `outputs/business_insights.json` | Per-segment revenue share and hypothesis-style recommendations |
+| `outputs/customer_segments.parquet` | All 4,338 customers with features and assigned segments |
+
+---
+
+## Limitations & Honest Caveats
+
+- **No churn claims.** The dataset contains no validated churn outcome, so no churn prediction or churn labeling is made anywhere — inactivity observations are exactly that: observations.
+- Segment descriptions are **observational**; business recommendations are hypotheses to A/B test, not causal claims.
+- Silhouette 0.3381 indicates **moderate** separation — typical for continuous behavioral data, and reported as such.
+- Single retailer, single year, predominantly UK customers — segment structure may not transfer to other businesses.
+- Inference assigns a profile from **behavioral history** (RFM); it cannot and does not derive behavior from demographics.
+
+---
+
+## Tech Stack
+
+**Python 3.11+** · pandas · NumPy · scikit-learn · SciPy · Plotly · Matplotlib · Streamlit · PyArrow · openpyxl · PyYAML · joblib · pytest · Ruff · Black · GitHub Actions
+
+---
+
+## Author
+
+**Karthik Neduri**
+
+- 📧 [karthikneduri17@gmail.com](mailto:karthikneduri17@gmail.com)
+- 💻 [github.com/Karthik-0917](https://github.com/Karthik-0917)
+
+*Built as part of the InternsElite internship program.*
+
+---
+
+## License
+
+See the [LICENSE](LICENSE) file for details.

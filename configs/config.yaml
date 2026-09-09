@@ -1,0 +1,17 @@
+dataset:
+  path: data/Online_Retail.xlsx
+
+model:
+  random_state: 42
+  n_init: 10
+  k_min: 2
+  k_max: 8
+
+stability:
+  seeds: [42, 7, 21, 52, 101]
+  reference_seed: 42
+
+k_selection:
+  min_cluster_share: 0.02
+  min_ari: 0.85
+  min_business_k: 3

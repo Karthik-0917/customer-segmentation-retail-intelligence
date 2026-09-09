@@ -1,0 +1,11 @@
+{
+  "rows_loaded": 541909,
+  "duplicate_rows_removed": 5268,
+  "missing_customer_id_removed": 135037,
+  "invalid_date_removed": 0,
+  "cancellation_rows_removed": 8872,
+  "non_positive_qty_or_price_removed": 40,
+  "valid_rows": 392692,
+  "valid_orders": 18532,
+  "customers": 4338
+}

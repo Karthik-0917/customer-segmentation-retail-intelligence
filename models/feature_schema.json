@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "features": [
+    {
+      "name": "Recency",
+      "order": 0,
+      "transformation": "log1p",
+      "dtype": "float64",
+      "observed_range": [
+        0.0,
+        373.0
+      ]
+    },
+    {
+      "name": "Frequency",
+      "order": 1,
+      "transformation": "log1p",
+      "dtype": "float64",
+      "observed_range": [
+        1.0,
+        209.0
+      ]
+    },
+    {
+      "name": "Monetary",
+      "order": 2,
+      "transformation": "log1p",
+      "dtype": "float64",
+      "observed_range": [
+        3.75,
+        280206.02
+      ]
+    }
+  ],
+  "feature_count": 3,
+  "scaler": "StandardScaler",
+  "missing_value_policy": "reject",
+  "definitions": {
+    "Recency": "Days between the customer's latest valid purchase and the reference date (max valid InvoiceDate + 1 day).",
+    "Frequency": "Number of unique valid purchase invoices (orders).",
+    "Monetary": "Total valid purchase revenue (sum of Quantity x UnitPrice)."
+  }
+}

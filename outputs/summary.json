@@ -1,0 +1,40 @@
+{
+  "total_customers": 4338,
+  "valid_orders": 18532,
+  "valid_rows": 392692,
+  "total_revenue": 8887208.89,
+  "avg_order_value": 479.56,
+  "observation_start": "2010-12-01",
+  "observation_end": "2011-12-09",
+  "reference_date": "2011-12-10",
+  "selected_k": 3,
+  "quantitative_best_k": 2,
+  "k_selection_reason": "K=2 ranks first on the quantitative evidence score (silhouette 0.4340, mean ARI across the fixed seed set 0.998, smallest-cluster share 38.1%), but it falls below the documented minimum of 3 segments required for differentiated customer strategy: at that coarseness the partition reproduces only a broad active-versus-inactive split. The procedure therefore selects the top-ranked candidate with K >= 3: K=3 (evidence score 0.541, silhouette 0.3381, mean ARI 0.995, smallest cluster 17.2% of customers). The full evidence table for every candidate K, including K=2, is preserved in outputs/model_evaluation.csv and displayed on the Model Analysis page.",
+  "silhouette": 0.3380975154783401,
+  "inertia": 4879.134292546419,
+  "cluster_sizes": {
+    "0": 1916,
+    "1": 745,
+    "2": 1677
+  },
+  "segments": {
+    "0": "Inactive Low-Spend Infrequent Customers",
+    "1": "Active High-Value Frequent Buyers",
+    "2": "Steady Mid-Value Customers"
+  },
+  "pca_explained_variance_ratio": [
+    0.7517,
+    0.187
+  ],
+  "cleaning_counts": {
+    "rows_loaded": 541909,
+    "duplicate_rows_removed": 5268,
+    "missing_customer_id_removed": 135037,
+    "invalid_date_removed": 0,
+    "cancellation_rows_removed": 8872,
+    "non_positive_qty_or_price_removed": 40,
+    "valid_rows": 392692,
+    "valid_orders": 18532,
+    "customers": 4338
+  }
+}

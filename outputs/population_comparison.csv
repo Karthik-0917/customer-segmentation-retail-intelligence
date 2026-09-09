@@ -1,0 +1,4 @@
+cluster,count,share_pct,Recency_vs_population,Frequency_vs_population,Monetary_vs_population,AvgOrderValue_vs_population
+0,1916,44.2,3.08,0.5,0.44,0.77
+1,745,17.2,0.16,5.0,5.55,1.26
+2,1677,38.7,0.62,1.5,1.52,1.08

@@ -1,0 +1,72 @@
+{
+  "model_version": "rfm-kmeans-v1",
+  "app_version": "2.1.0",
+  "feature_schema_version": "1.0",
+  "trained_at_utc": "2026-09-08T17:08:56Z",
+  "dataset": "UCI Online Retail (id 352)",
+  "dataset_file": "Online_Retail.xlsx",
+  "observation_start": "2010-12-01",
+  "observation_end": "2011-12-09",
+  "reference_date": "2011-12-10",
+  "features": [
+    "Recency",
+    "Frequency",
+    "Monetary"
+  ],
+  "transformation": "log1p",
+  "scaler": "StandardScaler",
+  "algorithm": "KMeans",
+  "selected_k": 3,
+  "k_selection": {
+    "procedure": "Deterministic multi-criteria K selection: (1) evaluate every K in the configured range, recording inertia, silhouette, cluster sizes, and fixed-seed stability (per-seed silhouette mean/std and ARI versus the seed-42 reference). (2) Sanity screens: reject K whose smallest cluster covers less than the configured share of customers, or whose mean ARI across the fixed seed set falls below the configured robustness floor. (3) Evidence score: equal-weighted mean of min-max-normalised silhouette, mean ARI, and smallest-cluster share across eligible candidates. (4) Deterministic ranking: score desc, then mean ARI desc, then smallest-cluster share desc, then lower K. (5) Documented business granularity layer: if the quantitative leader has fewer than the configured minimum number of segments required for differentiated strategy, the top-ranked candidate meeting that minimum is selected and the tradeoff is recorded explicitly.",
+    "parameters": {
+      "min_cluster_share": 0.02,
+      "min_ari": 0.85,
+      "min_business_k": 3,
+      "score": "equal-weighted mean of min-max-normalised silhouette, mean ARI, and smallest-cluster share (eligible candidates)",
+      "tie_break": "higher mean ARI, then larger smallest-cluster share, then lower K"
+    },
+    "quantitative_best": 2,
+    "business_override": {
+      "quantitative_best": 2,
+      "min_business_k": 3,
+      "reason": "K=2 leads the quantitative ranking but provides fewer than 3 segments, which is insufficient for differentiated customer strategy (it reproduces only a broad active-vs-inactive split). The top-ranked candidate meeting the documented minimum was selected instead. This qualitative layer is explicit and recorded, not a hidden override."
+    },
+    "explanation": "K=2 ranks first on the quantitative evidence score (silhouette 0.4340, mean ARI across the fixed seed set 0.998, smallest-cluster share 38.1%), but it falls below the documented minimum of 3 segments required for differentiated customer strategy: at that coarseness the partition reproduces only a broad active-versus-inactive split. The procedure therefore selects the top-ranked candidate with K >= 3: K=3 (evidence score 0.541, silhouette 0.3381, mean ARI 0.995, smallest cluster 17.2% of customers). The full evidence table for every candidate K, including K=2, is preserved in outputs/model_evaluation.csv and displayed on the Model Analysis page."
+  },
+  "stability_seeds": [
+    42,
+    7,
+    21,
+    52,
+    101
+  ],
+  "stability_reference_seed": 42,
+  "random_state": 42,
+  "n_init": 10,
+  "validation": {
+    "inertia": 4879.134292546419,
+    "silhouette": 0.3380975154783401,
+    "cluster_sizes": {
+      "0": 1916,
+      "1": 745,
+      "2": 1677
+    },
+    "min_centroid_distance": 1.7155153253665532,
+    "mean_centroid_distance": 2.52905436906171
+  },
+  "pca_explained_variance_ratio": [
+    0.7517,
+    0.187
+  ],
+  "python_version": "3.14.0",
+  "scikit_learn_version": "1.9.0",
+  "pandas_version": "3.0.5",
+  "artifacts": [
+    "scaler.joblib",
+    "kmeans.joblib",
+    "segment_mapping.json",
+    "feature_schema.json",
+    "model_metadata.json"
+  ]
+}

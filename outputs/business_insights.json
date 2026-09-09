@@ -1,0 +1,32 @@
+[
+  {
+    "cluster": 0,
+    "segment": "Inactive Low-Spend Infrequent Customers",
+    "observed_profile": "Median recency 154 days (population 50), median 1 orders (population 2), median spend 296 (population 669). 1916 customers (44.2% of the base) contributing 7.7% of valid revenue.",
+    "customer_share_pct": 44.2,
+    "revenue_share_pct": 7.7,
+    "potential_strategy": "A potential low-cost reactivation test (e.g. win-back offers) could be evaluated; heavy investment may not be justified.",
+    "risk_or_opportunity": "Low expected return; acquisition economics should be reviewed.",
+    "caution": "Descriptive clustering only: these groupings do not establish that any strategy will cause revenue or retention changes."
+  },
+  {
+    "cluster": 1,
+    "segment": "Active High-Value Frequent Buyers",
+    "observed_profile": "Median recency 8 days (population 50), median 10 orders (population 2), median spend 3,710 (population 669). 745 customers (17.2% of the base) contributing 66.3% of valid revenue.",
+    "customer_share_pct": 17.2,
+    "revenue_share_pct": 66.3,
+    "potential_strategy": "This segment may be a candidate for loyalty or early-access programmes; retention experiments could be tested here.",
+    "risk_or_opportunity": "Concentration risk: a large revenue share depends on this group.",
+    "caution": "Descriptive clustering only: these groupings do not establish that any strategy will cause revenue or retention changes."
+  },
+  {
+    "cluster": 2,
+    "segment": "Steady Mid-Value Customers",
+    "observed_profile": "Median recency 31 days (population 50), median 3 orders (population 2), median spend 1,013 (population 669). 1677 customers (38.7% of the base) contributing 26.0% of valid revenue.",
+    "customer_share_pct": 38.7,
+    "revenue_share_pct": 26.0,
+    "potential_strategy": "This segment may be a candidate for loyalty or early-access programmes; retention experiments could be tested here.",
+    "risk_or_opportunity": "Concentration risk: a large revenue share depends on this group.",
+    "caution": "Descriptive clustering only: these groupings do not establish that any strategy will cause revenue or retention changes."
+  }
+]

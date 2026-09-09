@@ -1,5 +1,4 @@
-**CI:** ![CI](https://github.com/Karthik-0917/customer-segmentation-retail-intelligence/actions/workflows/ci.yml/badge.svg)
-# Customer Segmentation and Retail Intelligence using K-Means Clustering
+**Live Demo:** https://customer-segmentation-retail-intelligence.streamlit.app/ · **CI:** ![CI](https://github.com/Karthik-0917/customer-segmentation-retail-intelligence/actions/workflows/ci.yml/badge.svg)
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-Data_Processing-150458?style=for-the-badge&logo=pandas&logoColor=white)
